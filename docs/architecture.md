@@ -97,6 +97,24 @@
 | Settings | 設定画面とユーザー設定の変更を管理する。 |
 | Notifications UI | 通知バナーやアラートの表示を担当する。 |
 | Error Handling | 例外時のフォールバックUIとログ送信を提供する。 |
+## Room Model
+
+- 1 つのルームは 1 人のホストを持ち、参加者（プレイヤー）と観戦者で構成する。
+- プレイヤー数は `min_players=2`, `max_players=5` を厳守する。
+- ホストもプレイヤーとしてカウントする。
+
+### 観戦の有無と `max_spectators`
+
+- 観戦機能はルーム単位で有効/無効を切り替える。
+- 観戦が無効のルームでは観戦参加を受け付けず、`max_spectators` は参照しない。
+- 観戦が有効のルームでは、同時観戦者数の上限を `max_spectators` で制御する。
+- `max_spectators` に到達している場合、新規の観戦参加は拒否する。
+
+### 開始条件
+
+- ホストは任意のタイミングで開始操作を行える。
+- `max_players` に到達した場合、自動開始を許可する設定を用意する。
+- 待機開始からのタイムアウトで自動開始する設定を用意する。
 ## Client-Server Message Set
 
 The client and server exchange JSON messages grouped into the following categories. Each message lists the minimum required fields.
