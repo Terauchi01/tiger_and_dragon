@@ -9,6 +9,7 @@ It is intended for offline training and self-play.
 
 The multiplayer server should reuse this same engine for state transitions and rule validation so that training and live play stay consistent.
 Keep the rules document in `RULES.md` as the shared source of truth.
+See `docs/architecture.md` for the planned responsibilities and module layout of the multiplayer server and client.
 
 ### Build sample simulation
 
