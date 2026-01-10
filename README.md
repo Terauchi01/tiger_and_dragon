@@ -1,24 +1,24 @@
-# Tiger & Dragon
+# タイガー＆ドラゴン
 
-This repository contains rules documentation and a learning-focused C++ game engine for Tiger & Dragon.
+このリポジトリは、タイガー＆ドラゴンのルール文書と学習向けのC++ゲームエンジンを含みます。
 
-## Learning Engine
+## 学習エンジン
 
-The learning engine is a fast, communication-free core that models hands, attack/defend flow, and the one-lap bonus.
-It is intended for offline training and self-play.
+学習エンジンは、手牌や攻め/受けの進行、1周ボーナスを通信なしで高速に扱うコアです。
+オフライン学習と自己対戦を目的としています。
 
-The multiplayer server should reuse this same engine for state transitions and rule validation so that training and live play stay consistent.
-Keep the rules document in `RULES.md` as the shared source of truth.
-See `docs/architecture.md` for the planned responsibilities and module layout of the multiplayer server and client.
+対戦サーバは学習と本番のルール差異を防ぐため、同じエンジンを用いて状態遷移と検証を行う想定です。
+ルールの一次資料は `RULES.md` に集約します。
+対戦サーバ/クライアントの責務と構成は `docs/architecture.md` を参照してください。
 
-### Build sample simulation
+### 学習シミュレーションのビルド
 
 ```bash
 g++ -std=c++17 -O2 -I./src src/engine.cpp src/learn_sim.cpp -o learn_sim
 ./learn_sim
 ```
 
-### Build debug GUI (terminal)
+### デバッグGUI（ターミナル）のビルド
 
 ```bash
 g++ -std=c++17 -O2 -I./src src/engine.cpp src/server_debug.cpp -o server_debug
