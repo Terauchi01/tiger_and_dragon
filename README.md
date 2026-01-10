@@ -17,3 +17,10 @@ See `docs/architecture.md` for the planned responsibilities and module layout of
 g++ -std=c++17 -O2 -I./src src/engine.cpp src/learn_sim.cpp -o learn_sim
 ./learn_sim
 ```
+
+### Build debug GUI (terminal)
+
+```bash
+g++ -std=c++17 -O2 -I./src src/engine.cpp src/server_debug.cpp -o server_debug
+./server_debug 4 42
+```
