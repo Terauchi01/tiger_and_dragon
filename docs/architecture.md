@@ -1,3 +1,64 @@
+# タイガー＆ドラゴン 対戦サーバ/クライアント設計メモ
+
+このドキュメントは、学習用エンジンとは別に、複数人対戦向けに必要なサーバ/クライアントの責務と構成を整理したものです。
+
+## 方針
+- 学習は通信なしの高速エンジンで行い、対戦時のみサーバを使用する。
+- 対戦サーバは **engine の状態遷移/検証ルール** を利用し、学習と対戦のルール差異を防ぐ。
+- ルールの一次資料は `RULES.md` に集約する。
+
+## 対戦サーバの責務
+- 接続管理（参加/切断/再接続）
+- ルーム管理（人数、席順、開始条件）
+- 対戦進行（ターン進行、攻め/受け/パス/1周ボーナス）
+- 行動の検証（不正手や不整合の拒否）
+- 状態配信（全プレイヤーへの最新状態通知）
+- ログ/リプレイ用の履歴保存
+
+## クライアントの責務
+- UI表示（手牌、攻め/受け列、ターン表示）
+- 入力処理（攻め・受け・パスの選択）
+- 通信（サーバとのメッセージ送受信）
+- ローカルの補助（入力バリデーション、演出）
+
+## サーバ構成案
+- `net/` : 接続とメッセージ送受信
+- `lobby/` : ルーム管理と参加制御
+- `match/` : 対戦状態の管理と進行
+- `rules/` : `engine` を利用した検証
+- `log/` : 対戦ログ/リプレイ
+
+## クライアント構成案
+- `net/` : 通信層（接続/再接続/受信キュー）
+- `ui/` : 画面表示
+- `input/` : 操作入力
+- `state/` : クライアント表示用状態
+
+## 最小メッセージ案
+- `join_room` : ルーム参加
+- `start_game` : ゲーム開始通知
+- `action` : 攻め/受け/パス/ボーナス選択
+- `state` : 状態更新
+- `end_game` : ゲーム終了通知
+# アーキテクチャ
+
+## Document Outline
+- 目的/スコープ
+- 背景と課題
+- 主要要件（機能/非機能）
+- システム全体像（コンテキスト図）
+- コンポーネント構成
+- データフロー
+- デプロイメント構成
+- セキュリティ/権限設計
+- 可観測性（ログ/メトリクス/トレース）
+- 運用/障害対応
+- 既知の制約と今後の課題
+
+## Required Diagrams
+- **状態遷移図**: 主要ドメインエンティティやワークフローの状態変化と遷移条件を整理し、正常系/例外系の流れを明確化する。
+- **シーケンス図**: ユーザー操作やAPI呼び出しに対するコンポーネント間の相互作用を時系列で示し、責務分担と呼び出し順序を可視化する。
+- **モジュール相関図**: モジュール（またはサービス）間の依存関係と境界を示し、結合度や変更影響範囲を把握できるようにする。
 # Architecture
 
 ## Room Model
@@ -18,6 +79,38 @@
 - ホストは任意のタイミングで開始操作を行える。
 - `max_players` に到達した場合、自動開始を許可する設定を用意する。
 - 待機開始からのタイムアウトで自動開始する設定を用意する。
+## Client-Server Message Set
+
+The client and server exchange JSON messages grouped into the following categories. Each message lists the minimum required fields.
+
+### Connection
+- `connect_request`: `{ "player_id" }`
+- `connect_ack`: `{ "player_id", "session_id" }`
+
+### Room Join
+- `room_join_request`: `{ "room_id", "player_id" }`
+- `room_join_ack`: `{ "room_id", "player_id", "seat_id" }`
+
+### Hand Submission
+- `hand_submit`: `{ "room_id", "player_id", "turn_id", "hand" }`
+- `hand_submit_ack`: `{ "room_id", "player_id", "turn_id", "accepted" }`
+
+### State Update
+- `state_update`: `{ "room_id", "turn_id", "state" }`
+- `turn_result`: `{ "room_id", "turn_id", "results" }`
+
+### Termination Notice
+- `room_close`: `{ "room_id", "reason" }`
+- `disconnect_notice`: `{ "player_id", "reason" }`
+## Client Responsibilities
+
+- 通信
+- 入力/UI
+  - ユーザー操作の制約
+  - 状態表示の責務
+- ゲーム状態表示
+- ローカル検証
+- AI連携
 ## Server Responsibilities
 
 - 接続管理
