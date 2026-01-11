@@ -7,6 +7,11 @@ PLAYERS="${PLAYERS:-4}"
 SEED="${SEED:-42}"
 PORT="${PORT:-9002}"
 ROOM="${ROOM:-room1}"
+SERVER_WAIT="${SERVER_WAIT:-1.5}"
+START_DELAY="${START_DELAY:-0.5}"
+MATCHES="${MATCHES:-1}"
+MATCH_PAUSE="${MATCH_PAUSE:-0.2}"
+PORT_WAIT_RETRIES="${PORT_WAIT_RETRIES:-30}"
 
 CXX="${CXX:-g++}"
 WS_INCLUDE="${WS_INCLUDE:-/opt/homebrew/include}"
@@ -52,22 +57,64 @@ except Exception:
     raise SystemExit("Python 'websockets' is missing. Run: pip install websockets")
 PY
 
-echo "Starting server..."
-rm -f "$ROOT/.ws_server.log" "$ROOT/.p1.log" "$ROOT/.p2.log" "$ROOT/.p3.log" "$ROOT/.p4.log"
-"$SERVER_BIN" "$PLAYERS" "$SEED" "$PORT" > "$ROOT/.ws_server.log" 2>&1 &
-SERVER_PID=$!
-trap 'kill "$SERVER_PID" 2>/dev/null || true' EXIT
-sleep 1
+for ((i=1; i<=MATCHES; i++)); do
+  MATCH_PORT="$PORT"
+  if [ "$MATCHES" -gt 1 ]; then
+    MATCH_PORT=$((PORT + i - 1))
+  fi
 
-echo "Starting clients..."
-python "$ROOT/clients/python/random_player.py" "ws://localhost:${PORT}" "$ROOM" p1 > "$ROOT/.p1.log" 2>&1 &
-P1=$!
-java -cp "$ROOT/clients/java" RandomPlayer "ws://localhost:${PORT}" "$ROOM" p2 > "$ROOT/.p2.log" 2>&1 &
-P2=$!
-"$CPP_CLIENT_BIN" "ws://localhost:${PORT}" "$ROOM" p3 > "$ROOT/.p3.log" 2>&1 &
-P3=$!
-python "$ROOT/clients/python/random_player.py" "ws://localhost:${PORT}" "$ROOM" p4 > "$ROOT/.p4.log" 2>&1 &
-P4=$!
+  if command -v lsof >/dev/null 2>&1; then
+    retries=$PORT_WAIT_RETRIES
+    while lsof -ti tcp:"$MATCH_PORT" >/dev/null 2>&1; do
+      if [ "$retries" -le 0 ]; then
+        echo "Port $MATCH_PORT still busy. Forcing cleanup."
+        kill $(lsof -ti tcp:"$MATCH_PORT") 2>/dev/null || true
+        break
+      fi
+      sleep 0.2
+      retries=$((retries - 1))
+    done
+  fi
+  if [ "$MATCHES" -gt 1 ]; then
+    SERVER_LOG="$ROOT/.match_${i}.ws_server.log"
+    P1_LOG="$ROOT/.match_${i}.p1.log"
+    P2_LOG="$ROOT/.match_${i}.p2.log"
+    P3_LOG="$ROOT/.match_${i}.p3.log"
+    P4_LOG="$ROOT/.match_${i}.p4.log"
+  else
+    SERVER_LOG="$ROOT/.ws_server.log"
+    P1_LOG="$ROOT/.p1.log"
+    P2_LOG="$ROOT/.p2.log"
+    P3_LOG="$ROOT/.p3.log"
+    P4_LOG="$ROOT/.p4.log"
+  fi
 
-wait "$P1" "$P2" "$P3" "$P4"
-echo "Match finished."
+  echo "Starting server (match $i/$MATCHES)..."
+  rm -f "$SERVER_LOG" "$P1_LOG" "$P2_LOG" "$P3_LOG" "$P4_LOG"
+  "$SERVER_BIN" "$PLAYERS" "$SEED" "$MATCH_PORT" > "$SERVER_LOG" 2>&1 &
+  SERVER_PID=$!
+  trap 'kill "$SERVER_PID" 2>/dev/null || true' EXIT
+  sleep "$SERVER_WAIT"
+
+  echo "Starting clients..."
+  python "$ROOT/clients/python/random_player.py" "ws://localhost:${MATCH_PORT}" "$ROOM" p1 > "$P1_LOG" 2>&1 &
+  P1=$!
+  sleep "$START_DELAY"
+  java -cp "$ROOT/clients/java" RandomPlayer "ws://localhost:${MATCH_PORT}" "$ROOM" p2 > "$P2_LOG" 2>&1 &
+  P2=$!
+  sleep "$START_DELAY"
+  "$CPP_CLIENT_BIN" "ws://localhost:${MATCH_PORT}" "$ROOM" p3 > "$P3_LOG" 2>&1 &
+  P3=$!
+  sleep "$START_DELAY"
+  python "$ROOT/clients/python/random_player.py" "ws://localhost:${MATCH_PORT}" "$ROOM" p4 > "$P4_LOG" 2>&1 &
+  P4=$!
+
+  wait "$P1" "$P2" "$P3" "$P4"
+  kill "$SERVER_PID" 2>/dev/null || true
+  wait "$SERVER_PID" 2>/dev/null || true
+  if kill -0 "$SERVER_PID" 2>/dev/null; then
+    kill -9 "$SERVER_PID" 2>/dev/null || true
+  fi
+  echo "Match $i finished."
+  sleep "$MATCH_PAUSE"
+done

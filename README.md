@@ -1,38 +1,40 @@
 # Tiger & Dragon
 
-This repository contains rules documentation and a learning-focused C++ game engine for Tiger & Dragon.
+このリポジトリは、タイガー＆ドラゴンのルールドキュメントと学習用C++ゲームエンジンを含みます。
 
-## Learning Engine
+## 学習用エンジン
 
-The learning engine is a fast, communication-free core that models hands, attack/defend flow, and the one-lap bonus.
-It is intended for offline training and self-play.
+学習用エンジンは通信なしで高速に動作し、手札・攻防・1周ボーナスを扱います。
+対戦サーバは同じエンジンを利用して状態遷移とルール検証を行い、学習と対戦のルール差異を防ぎます。
+ルールの一次資料は `RULES.md` に集約しています。
+対戦サーバ/クライアントの設計メモは `docs/architecture.md` を参照してください。
 
-The multiplayer server should reuse this same engine for state transitions and rule validation so that training and live play stay consistent.
-Keep the rules document in `RULES.md` as the shared source of truth.
-See `docs/architecture.md` for the planned responsibilities and module layout of the multiplayer server and client.
-
-Communication for the multiplayer server and AI clients uses WebSocket + JSON, so Python/C++/Java clients and a browser spectator can share the same protocol.
+対戦サーバとAIクライアントは WebSocket + JSON を共通プロトコルとして利用します。
 
 ## Multiplayer WebSocket MVP
 
-Protocol: `docs/protocol_ws_json.md`
+プロトコル: `docs/protocol_ws_json.md`
 
-### Server (C++)
+### サーバ (C++)
 
-Dependencies:
-- `websocketpp` + standalone Asio (or Boost.Asio)
+依存:
+- `websocketpp`
+- `boost@1.85`（互換性のため推奨）
 
-Example build (paths depend on your install):
+例:
 ```bash
-g++ -std=c++17 -O2 -I./src -I/path/to/websocketpp -I/path/to/asio/include \\
-  src/engine.cpp server/ws_server.cpp -o ws_server
+g++ -std=c++17 -O2 -I./src -I/opt/homebrew/include -I/opt/homebrew/opt/boost@1.85/include \
+  src/engine.cpp server/ws_server.cpp -o ws_server \
+  -L/opt/homebrew/opt/boost@1.85/lib -lboost_system -pthread
 ./ws_server 4 42 9002
 ```
 
-### Clients
+### クライアント
 
 Python:
 ```bash
+python -m venv .venv
+source .venv/bin/activate
 pip install websockets
 python clients/python/random_player.py ws://localhost:9002 room1 p1
 ```
@@ -43,28 +45,41 @@ javac clients/java/RandomPlayer.java
 java -cp clients/java RandomPlayer ws://localhost:9002 room1 p2
 ```
 
-C++ (websocketpp + Asio):
+C++ (websocketpp + Boost):
 ```bash
-g++ -std=c++17 -O2 -I/path/to/websocketpp -I/path/to/asio/include \\
-  clients/cpp/random_player.cpp -o random_player_cpp
+g++ -std=c++17 -O2 -I/opt/homebrew/include -I/opt/homebrew/opt/boost@1.85/include \
+  clients/cpp/random_player.cpp -o random_player_cpp \
+  -L/opt/homebrew/opt/boost@1.85/lib -lboost_system -pthread
 ./random_player_cpp ws://localhost:9002 room1 p3
 ```
 
-### Spectator (browser)
+### Web観戦
 
-Open `clients/web/spectator.html?ws=ws://localhost:9002&room=room1` in a browser.
+※ Web観戦機能は **現在未実装** です。
 
-### Build sample simulation
+## 付属スクリプト
+
+100戦まとめて実行:
+```bash
+MATCHES=100 ./scripts/run_match.sh
+```
+
+掃除:
+```bash
+./scripts/cleanup_match.sh
+```
+
+## 学習用サンプル
 
 ```bash
 g++ -std=c++17 -O2 -I./src src/engine.cpp src/learn_sim.cpp -o learn_sim
 ./learn_sim
 ```
 
-### Build debug GUI (terminal)
+## デバッグGUI (ターミナル)
 
 ```bash
 g++ -std=c++17 -O2 -I./src src/engine.cpp src/random_player.cpp src/server_debug.cpp -o server_debug
 ./server_debug 4 42 0
 ```
-The third argument selects the human player index; other players act randomly.
+第3引数が人間プレイヤの番号で、それ以外はランダムに行動します。

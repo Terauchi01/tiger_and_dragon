@@ -6,6 +6,7 @@
 #include <algorithm>
 #include <array>
 #include <cctype>
+#include <filesystem>
 #include <fstream>
 #include <functional>
 #include <iostream>
@@ -237,6 +238,18 @@ std::string PhaseLabel(GameState::Phase phase) {
   return "Unknown";
 }
 
+std::string SpectatorUrl(uint16_t port, const std::string& room_id) {
+  std::string path = "clients/web/spectator.html";
+  try {
+    std::filesystem::path cwd = std::filesystem::current_path();
+    path = (cwd / path).string();
+  } catch (const std::exception&) {
+  }
+  std::ostringstream out;
+  out << "file://" << path << "?ws=ws://localhost:" << port << "&room=" << room_id;
+  return out.str();
+}
+
 bool ParseScoreRules(const std::string& path, std::array<ScoreEntry, kTileKinds>* table) {
   std::ifstream file(path);
   if (!file.is_open()) {
@@ -303,6 +316,7 @@ class MatchServer {
     }
     scores_.assign(players_, 0);
     server_.init_asio();
+    server_.set_reuse_addr(true);
     server_.set_open_handler([this](ConnectionHdl hdl) { OnOpen(hdl); });
     server_.set_close_handler([this](ConnectionHdl hdl) { OnClose(hdl); });
     server_.set_message_handler(
@@ -310,6 +324,7 @@ class MatchServer {
   }
 
   void Run() {
+    std::cout << "Spectator UI: " << SpectatorUrl(port_, room_id_) << "\n";
     server_.listen(port_);
     server_.start_accept();
     std::cout << "WS server listening on " << port_ << "\n";
@@ -370,6 +385,11 @@ class MatchServer {
     out << "\"player_id\":\"" << info.player_id << "\",";
     out << "\"seat\":" << info.seat << ",\"players\":" << players_ << "}";
     server_.send(hdl, out.str(), websocketpp::frame::opcode::text);
+    if (info.spectator) {
+      std::cout << "Spectator joined: player_id=" << info.player_id << "\n";
+    } else {
+      std::cout << "Player joined: player_id=" << info.player_id << " seat=" << info.seat << "\n";
+    }
 
     if (!game_started_ && static_cast<int>(players_joined_.size()) == players_) {
       StartGame();
