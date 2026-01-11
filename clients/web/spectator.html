@@ -1,0 +1,74 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Tiger & Dragon Spectator</title>
+  <style>
+    body {
+      font-family: "Trebuchet MS", Verdana, sans-serif;
+      background: #f3f0e6;
+      color: #2a2a2a;
+      margin: 24px;
+    }
+    .panel {
+      border: 2px solid #2a2a2a;
+      background: #fffef8;
+      padding: 16px;
+      margin-bottom: 16px;
+      max-width: 520px;
+    }
+    .label {
+      font-weight: bold;
+      margin-right: 8px;
+    }
+    .row {
+      margin-bottom: 8px;
+    }
+    .status {
+      font-size: 18px;
+    }
+  </style>
+</head>
+<body>
+  <div class="panel">
+    <div class="row status"><span class="label">Phase:</span><span id="phase">-</span></div>
+    <div class="row"><span class="label">Current Player:</span><span id="current">-</span></div>
+    <div class="row"><span class="label">Attack Tile:</span><span id="attack">-</span></div>
+    <div class="row"><span class="label">Hand Sizes:</span><span id="hands">-</span></div>
+    <div class="row"><span class="label">Bonus Discards:</span><span id="bonus">-</span></div>
+    <div class="row"><span class="label">Turn:</span><span id="turn">-</span></div>
+  </div>
+
+  <script>
+    const params = new URLSearchParams(window.location.search);
+    const wsUrl = params.get("ws") || "ws://localhost:9002";
+    const roomId = params.get("room") || "room1";
+    const playerId = "spectator" + Math.floor(Math.random() * 10000);
+
+    const phaseEl = document.getElementById("phase");
+    const currentEl = document.getElementById("current");
+    const attackEl = document.getElementById("attack");
+    const handsEl = document.getElementById("hands");
+    const bonusEl = document.getElementById("bonus");
+    const turnEl = document.getElementById("turn");
+
+    const ws = new WebSocket(wsUrl);
+    ws.addEventListener("open", () => {
+      const join = { type: "join", room_id: roomId, player_id: playerId, role: "spectator" };
+      ws.send(JSON.stringify(join));
+    });
+
+    ws.addEventListener("message", (event) => {
+      const msg = JSON.parse(event.data);
+      if (msg.type !== "state") return;
+      phaseEl.textContent = msg.phase || "-";
+      currentEl.textContent = msg.current_player ?? "-";
+      attackEl.textContent = msg.attack_tile || "(none)";
+      handsEl.textContent = msg.hand_sizes || "-";
+      bonusEl.textContent = msg.bonus_discards || "-";
+      turnEl.textContent = msg.turn ?? "-";
+    });
+  </script>
+</body>
+</html>

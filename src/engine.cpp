@@ -208,9 +208,11 @@ bool ApplyAction(GameState& state, const Action& action) {
       return false;
     }
 
-    state.attack_tile = remove_from_hand(action.hand_index);
+    remove_from_hand(action.hand_index);
+    state.attack_tile.reset();
     state.attack_player = action.player;
-    state.current_player = (action.player + 1) % state.players;
+    state.phase = GameState::Phase::Attack;
+    state.current_player = action.player;
     return true;
   }
 
