@@ -11,7 +11,8 @@ This document defines a minimal protocol for AI clients and spectators.
 ```
 {"type":"join","room_id":"room1","player_id":"p1","role":"player"}
 ```
-- role: "player" or "spectator"
+- role: "player" or "spectator" (current server treats any non-"spectator" as a player)
+- room_id: accepted but not validated; echoed in join_ack only
 
 ### action
 ```
@@ -19,12 +20,23 @@ This document defines a minimal protocol for AI clients and spectators.
 ```
 - choice: "1"-"8", "T", "D", or "pass"
 - The server determines action type from the current phase.
+- room_id and player_id are accepted but ignored by the current server
+- choice is case-insensitive for "pass" and for "T"/"D"
+
+### discards_request
+```
+{"type":"discards_request","room_id":"room1"}
+```
+- Request the current round's discards for all players.
+- room_id is accepted but not validated by the current server.
 
 ## Server -> Client
 ### join_ack
 ```
 {"type":"join_ack","room_id":"room1","player_id":"p1","seat":0,"players":4}
 ```
+- seat: -1 for spectators
+- room_id is echoed from the join payload and may differ from state.room_id
 
 ### state
 ```
@@ -44,6 +56,21 @@ This document defines a minimal protocol for AI clients and spectators.
 ```
 - hand: only for the recipient player; spectators receive "".
 - legal: only for the current player; others receive "".
+- turn starts at 0 and increments after each accepted action
+- phase is one of "Attack", "Defend", "BonusReceive", or "Finished"
+- attack_tile is "" when there is no active attack
+
+### discards
+```
+{"type":"discards","room_id":"room1","player0_discards":"4A,7D,6A,B","player1_discards":"","player2_discards":"","player3_discards":""}
+```
+- playerN_discards: per-player discard list using "," between tokens.
+- Each token is encoded as:
+  - "<tile>A" for Attack
+  - "<tile>D" for Defend
+  - "B" for BonusReceive (tile is masked)
+- Empty string means no discards for that player.
+- player0_discards maps to seat 0, player1_discards to seat 1, etc.
 
 ### round_result
 ```
@@ -60,6 +87,7 @@ This document defines a minimal protocol for AI clients and spectators.
   "round":1
 }
 ```
+- winner_discards uses "<tile><suffix>" with the tile shown for all actions, including BonusReceive.
 
 ### error
 ```

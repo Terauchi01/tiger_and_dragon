@@ -12,6 +12,13 @@ def parse_csv(value: str):
         return []
     return [v.strip() for v in value.split(",") if v.strip()]
 
+def sort_discard_keys(key: str):
+    if key.startswith("player") and key.endswith("_discards"):
+        num = key[len("player"):-len("_discards")]
+        if num.isdigit():
+            return (0, int(num))
+    return (1, key)
+
 
 async def run(uri: str, player_id: str, room_id: str):
     async with websockets.connect(uri) as ws:
@@ -26,6 +33,9 @@ async def run(uri: str, player_id: str, room_id: str):
             if mtype == "state":
                 legal = parse_csv(msg.get("legal", ""))
                 if legal:
+                    # Requesting discards reveals all players' discard information.
+                    discards_req = {"type": "discards_request", "room_id": room_id}
+                    await ws.send(json.dumps(discards_req))
                     choice = random.choice(legal)
                     action = {
                         "type": "action",
@@ -34,6 +44,11 @@ async def run(uri: str, player_id: str, room_id: str):
                         "choice": choice,
                     }
                     await ws.send(json.dumps(action))
+            elif mtype == "discards":
+                discards = {k: v for k, v in msg.items() if k.endswith("_discards")}
+                if discards:
+                    parts = [f"{k}={discards[k]}" for k in sorted(discards, key=sort_discard_keys)]
+                    # print("discards " + " ".join(parts))
             elif mtype == "game_over":
                 winner = msg.get("winner")
                 print(f"game_over winner={winner}")

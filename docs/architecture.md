@@ -41,11 +41,16 @@
 - `state/` : クライアント表示用状態
 
 ## 最小メッセージ案
-- `join_room` : ルーム参加
-- `start_game` : ゲーム開始通知
+- `join` : ルーム参加（プレイヤー/観戦）
+- `join_ack` : 参加結果（席割り）
 - `action` : 攻め/受け/パス/ボーナス選択
 - `state` : 状態更新
-- `end_game` : ゲーム終了通知
+- `discards_request` : 全員の捨て札情報を要求
+- `discards` : 全員の捨て札情報
+- `round_result` : ラウンド結果
+- `error` : エラー通知
+- `game_over` : 試合終了通知
+- 詳細なフィールド定義は `docs/protocol_ws_json.md` を参照
 # アーキテクチャ
 
 ## Document Outline
@@ -123,27 +128,20 @@
 - 待機開始からのタイムアウトで自動開始する設定を用意する。
 ## Client-Server Message Set
 
-The client and server exchange JSON messages grouped into the following categories. Each message lists the minimum required fields.
+Current WebSocket + JSON protocol (see `docs/protocol_ws_json.md` for details).
 
-### Connection
-- `connect_request`: `{ "player_id" }`
-- `connect_ack`: `{ "player_id", "session_id" }`
+### Client -> Server
+- `join`: `{ "room_id", "player_id", "role" }`
+- `action`: `{ "room_id", "player_id", "choice" }`
+- `discards_request`: `{ "room_id" }`
 
-### Room Join
-- `room_join_request`: `{ "room_id", "player_id" }`
-- `room_join_ack`: `{ "room_id", "player_id", "seat_id" }`
-
-### Hand Submission
-- `hand_submit`: `{ "room_id", "player_id", "turn_id", "hand" }`
-- `hand_submit_ack`: `{ "room_id", "player_id", "turn_id", "accepted" }`
-
-### State Update
-- `state_update`: `{ "room_id", "turn_id", "state" }`
-- `turn_result`: `{ "room_id", "turn_id", "results" }`
-
-### Termination Notice
-- `room_close`: `{ "room_id", "reason" }`
-- `disconnect_notice`: `{ "player_id", "reason" }`
+### Server -> Client
+- `join_ack`: `{ "room_id", "player_id", "seat", "players" }`
+- `state`: `{ "room_id", "turn", "phase", "current_player", "attack_tile", "hand", "hand_sizes", "bonus_discards", "legal", "scores" }`
+- `discards`: `{ "room_id", "player0_discards", "player1_discards", ... }` (N=0..players-1)
+- `round_result`: `{ "winner", "last_tile", "bonus_discards", "round_points", "winner_hand", "winner_hand_size", "winner_discards", "scores", "round" }`
+- `error`: `{ "message" }`
+- `game_over`: `{ "winner", "scores" }`
 ## Client Responsibilities
 
 - 通信

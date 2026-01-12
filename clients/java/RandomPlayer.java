@@ -100,11 +100,16 @@ public class RandomPlayer {
                 String legal = extractString(msg, "legal");
                 List<String> choices = parseCsv(legal);
                 if (!choices.isEmpty()) {
+                    // Requesting discards reveals all players' discard information.
+                    String discardsReq = String.format("{\"type\":\"discards_request\",\"room_id\":\"%s\"}", roomId);
+                    webSocket.sendText(discardsReq, true).join();
                     String choice = choices.get(rng.nextInt(choices.size()));
                     String action = String.format("{\"type\":\"action\",\"room_id\":\"%s\",\"player_id\":\"%s\",\"choice\":\"%s\"}",
                             roomId, playerId, choice);
                     webSocket.sendText(action, true).join();
                 }
+            } else if (type.equals("discards")) {
+                // System.out.println("discards " + msg);
             } else if (type.equals("game_over")) {
                 Integer winner = extractInt(msg, "winner");
                 System.out.println("game_over winner=" + winner);

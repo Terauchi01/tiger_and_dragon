@@ -100,6 +100,10 @@ int main(int argc, char** argv) {
       if (legal.has_value()) {
         auto choices = SplitCsv(legal.value());
         if (!choices.empty()) {
+          // Requesting discards reveals all players' discard information.
+          std::ostringstream discards_req;
+          discards_req << "{\"type\":\"discards_request\",\"room_id\":\"" << room_id << "\"}";
+          client.send(hdl, discards_req.str(), websocketpp::frame::opcode::text);
           std::uniform_int_distribution<size_t> dist(0, choices.size() - 1);
           std::string choice = choices[dist(rng)];
           std::ostringstream action;
@@ -108,6 +112,8 @@ int main(int argc, char** argv) {
           client.send(hdl, action.str(), websocketpp::frame::opcode::text);
         }
       }
+    } else if (type.value() == "discards") {
+      // std::cout << "discards " << payload << "\n";
     } else if (type.value() == "game_over") {
       std::cout << "game_over\n";
       done = true;

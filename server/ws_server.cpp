@@ -224,6 +224,23 @@ std::string JoinSet(const std::set<std::string>& values) {
   return out.str();
 }
 
+std::string JoinPublicDiscards(const std::vector<DiscardRecord>& records) {
+  std::ostringstream out;
+  size_t count = 0;
+  for (const auto& record : records) {
+    if (count > 0) {
+      out << ",";
+    }
+    if (record.type == Action::Type::BonusReceive) {
+      out << "B";
+    } else {
+      out << ToLabel(record.kind) << SuffixForAction(record.type);
+    }
+    ++count;
+  }
+  return out.str();
+}
+
 std::string PhaseLabel(GameState::Phase phase) {
   switch (phase) {
     case GameState::Phase::Attack:
@@ -353,6 +370,10 @@ class MatchServer {
     }
     if (type.value() == "action") {
       HandleAction(hdl, payload);
+      return;
+    }
+    if (type.value() == "discards_request") {
+      HandleDiscardsRequest(hdl, payload);
       return;
     }
     SendError(hdl, "unknown type");
@@ -497,6 +518,19 @@ class MatchServer {
     BroadcastState();
   }
 
+  void HandleDiscardsRequest(ConnectionHdl hdl, const std::string& payload) {
+    auto room_id = ExtractString(payload, "room_id");
+    if (!room_id.has_value()) {
+      SendError(hdl, "missing room_id");
+      return;
+    }
+    const auto it = clients_.find(hdl);
+    if (it == clients_.end()) {
+      return;
+    }
+    SendDiscards(hdl);
+  }
+
   void StartGame() {
     GameConfig config;
     config.players = players_;
@@ -562,6 +596,20 @@ class MatchServer {
     out << "\"legal\":\"" << legal << "\",";
     out << "\"scores\":\"" << JoinInts(scores_) << "\"}";
 
+    server_.send(hdl, out.str(), websocketpp::frame::opcode::text);
+  }
+
+  void SendDiscards(ConnectionHdl hdl) {
+    std::ostringstream out;
+    out << "{\"type\":\"discards\",\"room_id\":\"" << room_id_ << "\"";
+    for (int i = 0; i < players_; ++i) {
+      out << ",\"player" << i << "_discards\":\"";
+      if (i >= 0 && i < static_cast<int>(discards_.size())) {
+        out << JoinPublicDiscards(discards_[i]);
+      }
+      out << "\"";
+    }
+    out << "}";
     server_.send(hdl, out.str(), websocketpp::frame::opcode::text);
   }
 
